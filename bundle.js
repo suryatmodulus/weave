@@ -5396,8 +5396,7 @@
               module.producers = readProducersSection(reader);
               break;
             default: {
-              const offset = reader.view.byteOffset + reader.ofs;
-              const view = new DataView(reader.view.buffer, offset, reader.view.byteLength - offset);
+              const view = new DataView(reader.view.buffer, reader.view.byteOffset + reader.ofs, reader.view.byteLength - reader.ofs);
               section.name = `custom: '${custom.name}'`;
               module.customSectionData.set(section.index, view);
               break;
