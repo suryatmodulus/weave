@@ -1,4 +1,334 @@
 (() => {
+  var __create = Object.create;
+  var __defProp = Object.defineProperty;
+  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+  var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __getProtoOf = Object.getPrototypeOf;
+  var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __commonJS = (cb, mod) => function __require() {
+    return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+  };
+  var __copyProps = (to, from, except, desc) => {
+    if (from && typeof from === "object" || typeof from === "function") {
+      for (let key of __getOwnPropNames(from))
+        if (!__hasOwnProp.call(to, key) && key !== except)
+          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+    }
+    return to;
+  };
+  var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target, mod));
+
+  // ../node_modules/webtreemap/build/tree.js
+  var require_tree = __commonJS({
+    "../node_modules/webtreemap/build/tree.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      function treeify(data) {
+        var tree = { size: 0 };
+        for (var _i = 0, data_1 = data; _i < data_1.length; _i++) {
+          var _a = data_1[_i], path2 = _a[0], size = _a[1];
+          var parts = path2.replace(/\/$/, "").split("/");
+          var t3 = tree;
+          var _loop_1 = function() {
+            var id2 = parts.shift();
+            if (!t3.children)
+              t3.children = [];
+            var child = t3.children.find(function(c3) {
+              return c3.id === id2;
+            });
+            if (!child) {
+              child = { id: id2, size: 0 };
+              t3.children.push(child);
+            }
+            if (parts.length === 0) {
+              if (child.size !== 0) {
+                throw new Error("duplicate path " + path2 + " " + child.size);
+              }
+              child.size = size;
+            }
+            t3 = child;
+          };
+          while (parts.length > 0) {
+            _loop_1();
+          }
+        }
+        return tree;
+      }
+      exports.treeify = treeify;
+      function flatten(n2, join) {
+        if (join === void 0) {
+          join = function(parent, child2) {
+            return parent + "/" + child2;
+          };
+        }
+        if (n2.children) {
+          for (var _i = 0, _a = n2.children; _i < _a.length; _i++) {
+            var c3 = _a[_i];
+            flatten(c3, join);
+          }
+          if (n2.children.length === 1) {
+            var child = n2.children[0];
+            n2.id += "/" + child.id;
+            n2.children = child.children;
+          }
+        }
+      }
+      exports.flatten = flatten;
+      function rollup(n2) {
+        if (!n2.children)
+          return;
+        var total = 0;
+        for (var _i = 0, _a = n2.children; _i < _a.length; _i++) {
+          var c3 = _a[_i];
+          rollup(c3);
+          total += c3.size;
+        }
+        if (total > n2.size)
+          n2.size = total;
+      }
+      exports.rollup = rollup;
+      function sort(n2) {
+        if (!n2.children)
+          return;
+        for (var _i = 0, _a = n2.children; _i < _a.length; _i++) {
+          var c3 = _a[_i];
+          sort(c3);
+        }
+        n2.children.sort(function(a3, b3) {
+          return b3.size - a3.size;
+        });
+      }
+      exports.sort = sort;
+    }
+  });
+
+  // ../node_modules/webtreemap/build/treemap.js
+  var require_treemap = __commonJS({
+    "../node_modules/webtreemap/build/treemap.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      var CSS_PREFIX = "webtreemap-";
+      var NODE_CSS_CLASS = CSS_PREFIX + "node";
+      var DEFAULT_CSS = "\n.webtreemap-node {\n  cursor: pointer;\n  position: absolute;\n  border: solid 1px #666;\n  box-sizing: border-box;\n  overflow: hidden;\n  background: white;\n  transition: left .15s, top .15s, width .15s, height .15s;\n}\n\n.webtreemap-node:hover {\n  background: #ddd;\n}\n\n.webtreemap-caption {\n  font-size: 10px;\n  text-align: center;\n}\n";
+      function addCSS(parent) {
+        var style = document.createElement("style");
+        style.innerText = DEFAULT_CSS;
+        parent.appendChild(style);
+      }
+      function isDOMNode(e3) {
+        return e3.classList.contains(NODE_CSS_CLASS);
+      }
+      exports.isDOMNode = isDOMNode;
+      function getNodeIndex(target) {
+        var index = 0;
+        var node = target;
+        while (node = node.previousElementSibling) {
+          if (isDOMNode(node))
+            index++;
+        }
+        return index;
+      }
+      function getAddress(el) {
+        var address = [];
+        var n2 = el;
+        while (n2 && isDOMNode(n2)) {
+          address.unshift(getNodeIndex(n2));
+          n2 = n2.parentElement;
+        }
+        address.shift();
+        return address;
+      }
+      exports.getAddress = getAddress;
+      function px(x3) {
+        return Math.round(x3) + "px";
+      }
+      function defaultOptions(options) {
+        var opts = {
+          padding: options.padding || [14, 3, 3, 3],
+          caption: options.caption || function(node) {
+            return node.id || "";
+          },
+          showNode: options.showNode || function(node, width, height) {
+            return width > 20 && height >= opts.padding[0];
+          },
+          showChildren: options.showChildren || function(node, width, height) {
+            return width > 40 && height > 40;
+          }
+        };
+        return opts;
+      }
+      var TreeMap = function() {
+        function TreeMap2(node, options) {
+          this.node = node;
+          this.options = defaultOptions(options);
+        }
+        TreeMap2.prototype.ensureDOM = function(node) {
+          if (node.dom)
+            return node.dom;
+          var dom = document.createElement("div");
+          dom.className = NODE_CSS_CLASS;
+          if (this.options.caption) {
+            var caption = document.createElement("div");
+            caption.className = CSS_PREFIX + "caption";
+            caption.innerText = this.options.caption(node);
+            dom.appendChild(caption);
+          }
+          node.dom = dom;
+          return dom;
+        };
+        TreeMap2.prototype.selectSpan = function(children2, space, start2) {
+          var smin = children2[start2].size;
+          var smax = smin;
+          var sum2 = 0;
+          var lastScore = 0;
+          var end = start2;
+          for (; end < children2.length; end++) {
+            var size = children2[end].size;
+            if (size < smin)
+              smin = size;
+            if (size > smax)
+              smax = size;
+            var nextSum = sum2 + size;
+            var score = Math.max(smax * space * space / (nextSum * nextSum), nextSum * nextSum / (smin * space * space));
+            if (lastScore && score > lastScore) {
+              break;
+            }
+            lastScore = score;
+            sum2 = nextSum;
+          }
+          return { end, sum: sum2 };
+        };
+        TreeMap2.prototype.layoutChildren = function(node, level, width, height) {
+          var total = node.size;
+          var children2 = node.children;
+          if (!children2)
+            return;
+          var x1 = -1, y1 = -1, x22 = width - 1, y22 = height - 1;
+          var spacing = 0;
+          var padding = this.options.padding;
+          y1 += padding[0];
+          if (padding[1]) {
+            x22 -= padding[1] + 1;
+          }
+          y22 -= padding[2];
+          x1 += padding[3];
+          var i3 = 0;
+          if (this.options.showChildren(node, x22 - x1, y22 - y1)) {
+            var scale = Math.sqrt(total / ((x22 - x1) * (y22 - y1)));
+            var x3 = x1, y3 = y1;
+            children:
+              for (var start2 = 0; start2 < children2.length; ) {
+                x3 = x1;
+                var space = scale * (x22 - x1);
+                var _a = this.selectSpan(children2, space, start2), end = _a.end, sum2 = _a.sum;
+                if (sum2 / total < 0.1)
+                  break;
+                var height_1 = sum2 / space;
+                var heightPx = Math.round(height_1 / scale) + 1;
+                for (i3 = start2; i3 < end; i3++) {
+                  var child = children2[i3];
+                  var size = child.size;
+                  var width_1 = size / height_1;
+                  var widthPx = Math.round(width_1 / scale) + 1;
+                  if (!this.options.showNode(child, widthPx - spacing, heightPx - spacing)) {
+                    break children;
+                  }
+                  var needsAppend = child.dom == null;
+                  var dom = this.ensureDOM(child);
+                  var style = dom.style;
+                  style.left = px(x3);
+                  style.width = px(widthPx - spacing);
+                  style.top = px(y3);
+                  style.height = px(heightPx - spacing);
+                  if (needsAppend) {
+                    node.dom.appendChild(dom);
+                  }
+                  this.layoutChildren(child, level + 1, widthPx, heightPx);
+                  x3 += widthPx - 1;
+                }
+                y3 += heightPx - 1;
+                start2 = end;
+              }
+          }
+          for (; i3 < children2.length; i3++) {
+            if (!children2[i3].dom)
+              break;
+            children2[i3].dom.parentNode.removeChild(children2[i3].dom);
+            children2[i3].dom = void 0;
+          }
+        };
+        TreeMap2.prototype.render = function(container) {
+          var _this = this;
+          addCSS(container);
+          var dom = this.ensureDOM(this.node);
+          var width = container.offsetWidth;
+          var height = container.offsetHeight;
+          dom.onclick = function(e3) {
+            var node = e3.target;
+            while (!isDOMNode(node)) {
+              node = node.parentElement;
+              if (!node)
+                return;
+            }
+            var address = getAddress(node);
+            _this.zoom(address);
+          };
+          dom.style.width = width + "px";
+          dom.style.height = height + "px";
+          container.appendChild(dom);
+          this.layoutChildren(this.node, 0, width, height);
+        };
+        TreeMap2.prototype.zoom = function(address) {
+          var node = this.node;
+          var _a = this.options.padding, padTop = _a[0], padRight = _a[1], padBottom = _a[2], padLeft = _a[3];
+          var width = node.dom.offsetWidth;
+          var height = node.dom.offsetHeight;
+          for (var _i = 0, address_1 = address; _i < address_1.length; _i++) {
+            var index = address_1[_i];
+            width -= padLeft + padRight;
+            height -= padTop + padBottom;
+            if (!node.children)
+              throw new Error("bad address");
+            for (var _b = 0, _c = node.children; _b < _c.length; _b++) {
+              var c3 = _c[_b];
+              if (c3.dom)
+                c3.dom.style.zIndex = "0";
+            }
+            node = node.children[index];
+            var style = node.dom.style;
+            style.zIndex = "1";
+            style.left = px(padLeft - 1);
+            style.width = px(width);
+            style.top = px(padTop - 1);
+            style.height = px(height);
+          }
+          this.layoutChildren(node, 0, width, height);
+        };
+        return TreeMap2;
+      }();
+      exports.TreeMap = TreeMap;
+      function render2(container, node, options) {
+        new TreeMap(node, options).render(container);
+      }
+      exports.render = render2;
+    }
+  });
+
+  // ../node_modules/webtreemap/build/webtreemap.js
+  var require_webtreemap = __commonJS({
+    "../node_modules/webtreemap/build/webtreemap.js"(exports) {
+      "use strict";
+      Object.defineProperty(exports, "__esModule", { value: true });
+      var tree_1 = require_tree();
+      exports.flatten = tree_1.flatten;
+      exports.rollup = tree_1.rollup;
+      exports.sort = tree_1.sort;
+      exports.treeify = tree_1.treeify;
+      var treemap_1 = require_treemap();
+      exports.render = treemap_1.render;
+    }
+  });
+
   // ../wasm/type.ts
   function readValType(r3) {
     const n2 = r3.read8();
@@ -181,9 +511,9 @@
         return { op: "memory.grow" /* memory_grow */ };
       }
       case 65:
-        return { op: "i32.const" /* i32_const */, n: r3.readUint() };
+        return { op: "i32.const" /* i32_const */, n: r3.readSint() };
       case 66:
-        return { op: "i64.const" /* i64_const */, n: r3.readUint() };
+        return { op: "i64.const" /* i64_const */, n: r3.readSintBig() };
       case 67:
         return { op: "f32.const" /* f32_const */, z: r3.readF32() };
       case 68:
@@ -473,7 +803,7 @@
     for (let i3 = 0; i3 < len; i3++) {
       const count = r3.readUint();
       const type2 = readValType(r3);
-      for (let j3 = 0; j3 < count; j3++) {
+      for (let j4 = 0; j4 < count; j4++) {
         locals.push(type2);
       }
     }
@@ -505,23 +835,19 @@
   }
   function readLimits(r3) {
     const b3 = r3.read8();
-    let minimum;
+    let minimum = r3.readUint();
     let maximum;
-    switch (b3) {
-      case 0:
-        minimum = r3.readUint();
-        break;
-      case 1:
-        minimum = r3.readUint();
-        maximum = r3.readUint();
-        break;
-      default:
-        throw new Error(`invalid limits flag ${b3.toString(16)}`);
+    if (b3 & 1) {
+      maximum = r3.readUint();
     }
-    return { minimum, maximum };
+    let shared = (b3 & 2) !== 0;
+    if (b3 >> 2 !== 0) {
+      throw new Error(`invalid limits flag ${b3.toString(16)}`);
+    }
+    return { minimum, maximum, shared };
   }
   function limitsToString(limits) {
-    return `min=${limits.minimum} max=${limits.maximum ?? "none"}`;
+    return `min=${limits.minimum} max=${limits.maximum ?? "none"}${limits.shared ? " shared" : ""}`;
   }
   function readTable(r3) {
     const element = readValType(r3);
@@ -749,6 +1075,21 @@
       }
       return n2;
     }
+    readSint() {
+      return this.readUint();
+    }
+    readSintBig() {
+      let n2 = 0n;
+      let shift = 0;
+      while (true) {
+        const b3 = this.read8();
+        n2 |= BigInt(b3 & 127) << BigInt(shift);
+        if ((b3 & 128) === 0)
+          break;
+        shift += 7;
+      }
+      return n2;
+    }
     readF32() {
       const val = this.view.getFloat32(this.ofs, true);
       this.ofs += 4;
@@ -863,6 +1204,9 @@
     var f3 = { type: n2, props: i3, key: t3, ref: o3, __k: null, __: null, __b: 0, __e: null, __d: void 0, __c: null, __h: null, constructor: void 0, __v: r3 == null ? ++u : r3 };
     return r3 == null && l.vnode != null && l.vnode(f3), f3;
   }
+  function p() {
+    return { current: null };
+  }
   function d(n2) {
     return n2.children;
   }
@@ -900,24 +1244,24 @@
         n3.__d && (o3 = (t3 = (l3 = n3).__v).__e, (r3 = l3.__P) && (u3 = [], (i3 = a({}, t3)).__v = t3.__v + 1, j(r3, t3, i3, l3.__n, r3.ownerSVGElement !== void 0, t3.__h != null ? [o3] : null, u3, o3 == null ? k(t3) : o3, t3.__h), z(u3, t3), t3.__e != o3 && b(t3)));
       });
   }
-  function w(n2, l3, u3, i3, t3, o3, r3, f3, s2, a3) {
-    var h3, v3, p2, _3, b3, m3, g3, w3 = i3 && i3.__k || c, A = w3.length;
+  function w(n2, l3, u3, i3, t3, o3, r3, f3, s3, a3) {
+    var h3, v3, p3, _3, b3, m3, g3, w4 = i3 && i3.__k || c, A4 = w4.length;
     for (u3.__k = [], h3 = 0; h3 < l3.length; h3++)
       if ((_3 = u3.__k[h3] = (_3 = l3[h3]) == null || typeof _3 == "boolean" ? null : typeof _3 == "string" || typeof _3 == "number" || typeof _3 == "bigint" ? y(null, _3, null, null, _3) : Array.isArray(_3) ? y(d, { children: _3 }, null, null, null) : _3.__b > 0 ? y(_3.type, _3.props, _3.key, null, _3.__v) : _3) != null) {
-        if (_3.__ = u3, _3.__b = u3.__b + 1, (p2 = w3[h3]) === null || p2 && _3.key == p2.key && _3.type === p2.type)
-          w3[h3] = void 0;
+        if (_3.__ = u3, _3.__b = u3.__b + 1, (p3 = w4[h3]) === null || p3 && _3.key == p3.key && _3.type === p3.type)
+          w4[h3] = void 0;
         else
-          for (v3 = 0; v3 < A; v3++) {
-            if ((p2 = w3[v3]) && _3.key == p2.key && _3.type === p2.type) {
-              w3[v3] = void 0;
+          for (v3 = 0; v3 < A4; v3++) {
+            if ((p3 = w4[v3]) && _3.key == p3.key && _3.type === p3.type) {
+              w4[v3] = void 0;
               break;
             }
-            p2 = null;
+            p3 = null;
           }
-        j(n2, _3, p2 = p2 || e, t3, o3, r3, f3, s2, a3), b3 = _3.__e, (v3 = _3.ref) && p2.ref != v3 && (g3 || (g3 = []), p2.ref && g3.push(p2.ref, null, _3), g3.push(v3, _3.__c || b3, _3)), b3 != null ? (m3 == null && (m3 = b3), typeof _3.type == "function" && _3.__k === p2.__k ? _3.__d = s2 = x(_3, s2, n2) : s2 = P(n2, _3, p2, w3, b3, s2), typeof u3.type == "function" && (u3.__d = s2)) : s2 && p2.__e == s2 && s2.parentNode != n2 && (s2 = k(p2));
+        j(n2, _3, p3 = p3 || e, t3, o3, r3, f3, s3, a3), b3 = _3.__e, (v3 = _3.ref) && p3.ref != v3 && (g3 || (g3 = []), p3.ref && g3.push(p3.ref, null, _3), g3.push(v3, _3.__c || b3, _3)), b3 != null ? (m3 == null && (m3 = b3), typeof _3.type == "function" && _3.__k === p3.__k ? _3.__d = s3 = x(_3, s3, n2) : s3 = P(n2, _3, p3, w4, b3, s3), typeof u3.type == "function" && (u3.__d = s3)) : s3 && p3.__e == s3 && s3.parentNode != n2 && (s3 = k(p3));
       }
-    for (u3.__e = m3, h3 = A; h3--; )
-      w3[h3] != null && (typeof u3.type == "function" && w3[h3].__e != null && w3[h3].__e == u3.__d && (u3.__d = k(i3, h3 + 1)), N(w3[h3], w3[h3]));
+    for (u3.__e = m3, h3 = A4; h3--; )
+      w4[h3] != null && (typeof u3.type == "function" && w4[h3].__e != null && w4[h3].__e == u3.__d && (u3.__d = k(i3, h3 + 1)), N(w4[h3], w4[h3]));
     if (g3)
       for (h3 = 0; h3 < g3.length; h3++)
         M(g3[h3], g3[++h3], g3[++h3]);
@@ -926,6 +1270,11 @@
     for (var i3, t3 = n2.__k, o3 = 0; t3 && o3 < t3.length; o3++)
       (i3 = t3[o3]) && (i3.__ = n2, l3 = typeof i3.type == "function" ? x(i3, l3, u3) : P(u3, i3, i3, t3, i3.__e, l3));
     return l3;
+  }
+  function A(n2, l3) {
+    return l3 = l3 || [], n2 == null || typeof n2 == "boolean" || (Array.isArray(n2) ? n2.some(function(n3) {
+      A(n3, l3);
+    }) : l3.push(n2)), l3;
   }
   function P(n2, l3, u3, i3, t3, o3) {
     var r3, f3, e3;
@@ -988,30 +1337,30 @@
     this.l[n2.type + true](l.event ? l.event(n2) : n2);
   }
   function j(n2, u3, i3, t3, o3, r3, f3, e3, c3) {
-    var s2, h3, v3, y3, p2, k3, b3, m3, g3, x3, A, P2 = u3.type;
+    var s3, h3, v3, y3, p3, k3, b3, m3, g3, x3, A4, P3 = u3.type;
     if (u3.constructor !== void 0)
       return null;
-    i3.__h != null && (c3 = i3.__h, e3 = u3.__e = i3.__e, u3.__h = null, r3 = [e3]), (s2 = l.__b) && s2(u3);
+    i3.__h != null && (c3 = i3.__h, e3 = u3.__e = i3.__e, u3.__h = null, r3 = [e3]), (s3 = l.__b) && s3(u3);
     try {
       n:
-        if (typeof P2 == "function") {
-          if (m3 = u3.props, g3 = (s2 = P2.contextType) && t3[s2.__c], x3 = s2 ? g3 ? g3.props.value : s2.__ : t3, i3.__c ? b3 = (h3 = u3.__c = i3.__c).__ = h3.__E : ("prototype" in P2 && P2.prototype.render ? u3.__c = h3 = new P2(m3, x3) : (u3.__c = h3 = new _(m3, x3), h3.constructor = P2, h3.render = O), g3 && g3.sub(h3), h3.props = m3, h3.state || (h3.state = {}), h3.context = x3, h3.__n = t3, v3 = h3.__d = true, h3.__h = []), h3.__s == null && (h3.__s = h3.state), P2.getDerivedStateFromProps != null && (h3.__s == h3.state && (h3.__s = a({}, h3.__s)), a(h3.__s, P2.getDerivedStateFromProps(m3, h3.__s))), y3 = h3.props, p2 = h3.state, v3)
-            P2.getDerivedStateFromProps == null && h3.componentWillMount != null && h3.componentWillMount(), h3.componentDidMount != null && h3.__h.push(h3.componentDidMount);
+        if (typeof P3 == "function") {
+          if (m3 = u3.props, g3 = (s3 = P3.contextType) && t3[s3.__c], x3 = s3 ? g3 ? g3.props.value : s3.__ : t3, i3.__c ? b3 = (h3 = u3.__c = i3.__c).__ = h3.__E : ("prototype" in P3 && P3.prototype.render ? u3.__c = h3 = new P3(m3, x3) : (u3.__c = h3 = new _(m3, x3), h3.constructor = P3, h3.render = O), g3 && g3.sub(h3), h3.props = m3, h3.state || (h3.state = {}), h3.context = x3, h3.__n = t3, v3 = h3.__d = true, h3.__h = []), h3.__s == null && (h3.__s = h3.state), P3.getDerivedStateFromProps != null && (h3.__s == h3.state && (h3.__s = a({}, h3.__s)), a(h3.__s, P3.getDerivedStateFromProps(m3, h3.__s))), y3 = h3.props, p3 = h3.state, v3)
+            P3.getDerivedStateFromProps == null && h3.componentWillMount != null && h3.componentWillMount(), h3.componentDidMount != null && h3.__h.push(h3.componentDidMount);
           else {
-            if (P2.getDerivedStateFromProps == null && m3 !== y3 && h3.componentWillReceiveProps != null && h3.componentWillReceiveProps(m3, x3), !h3.__e && h3.shouldComponentUpdate != null && h3.shouldComponentUpdate(m3, h3.__s, x3) === false || u3.__v === i3.__v) {
+            if (P3.getDerivedStateFromProps == null && m3 !== y3 && h3.componentWillReceiveProps != null && h3.componentWillReceiveProps(m3, x3), !h3.__e && h3.shouldComponentUpdate != null && h3.shouldComponentUpdate(m3, h3.__s, x3) === false || u3.__v === i3.__v) {
               h3.props = m3, h3.state = h3.__s, u3.__v !== i3.__v && (h3.__d = false), h3.__v = u3, u3.__e = i3.__e, u3.__k = i3.__k, u3.__k.forEach(function(n3) {
                 n3 && (n3.__ = u3);
               }), h3.__h.length && f3.push(h3);
               break n;
             }
             h3.componentWillUpdate != null && h3.componentWillUpdate(m3, h3.__s, x3), h3.componentDidUpdate != null && h3.__h.push(function() {
-              h3.componentDidUpdate(y3, p2, k3);
+              h3.componentDidUpdate(y3, p3, k3);
             });
           }
-          h3.context = x3, h3.props = m3, h3.state = h3.__s, (s2 = l.__r) && s2(u3), h3.__d = false, h3.__v = u3, h3.__P = n2, s2 = h3.render(h3.props, h3.state, h3.context), h3.state = h3.__s, h3.getChildContext != null && (t3 = a(a({}, t3), h3.getChildContext())), v3 || h3.getSnapshotBeforeUpdate == null || (k3 = h3.getSnapshotBeforeUpdate(y3, p2)), A = s2 != null && s2.type === d && s2.key == null ? s2.props.children : s2, w(n2, Array.isArray(A) ? A : [A], u3, i3, t3, o3, r3, f3, e3, c3), h3.base = u3.__e, u3.__h = null, h3.__h.length && f3.push(h3), b3 && (h3.__E = h3.__ = null), h3.__e = false;
+          h3.context = x3, h3.props = m3, h3.state = h3.__s, (s3 = l.__r) && s3(u3), h3.__d = false, h3.__v = u3, h3.__P = n2, s3 = h3.render(h3.props, h3.state, h3.context), h3.state = h3.__s, h3.getChildContext != null && (t3 = a(a({}, t3), h3.getChildContext())), v3 || h3.getSnapshotBeforeUpdate == null || (k3 = h3.getSnapshotBeforeUpdate(y3, p3)), A4 = s3 != null && s3.type === d && s3.key == null ? s3.props.children : s3, w(n2, Array.isArray(A4) ? A4 : [A4], u3, i3, t3, o3, r3, f3, e3, c3), h3.base = u3.__e, u3.__h = null, h3.__h.length && f3.push(h3), b3 && (h3.__E = h3.__ = null), h3.__e = false;
         } else
           r3 == null && u3.__v === i3.__v ? (u3.__k = i3.__k, u3.__e = i3.__e) : u3.__e = L(i3.__e, u3, i3, t3, o3, r3, f3, c3);
-      (s2 = l.diffed) && s2(u3);
+      (s3 = l.diffed) && s3(u3);
     } catch (n3) {
       u3.__v = null, (c3 || r3 != null) && (u3.__e = e3, u3.__h = !!c3, r3[r3.indexOf(e3)] = null), l.__e(n3, u3, i3);
     }
@@ -1028,34 +1377,34 @@
     });
   }
   function L(l3, u3, i3, t3, o3, r3, f3, c3) {
-    var s2, a3, v3, y3 = i3.props, p2 = u3.props, d2 = u3.type, _3 = 0;
-    if (d2 === "svg" && (o3 = true), r3 != null) {
+    var s3, a3, v3, y3 = i3.props, p3 = u3.props, d3 = u3.type, _3 = 0;
+    if (d3 === "svg" && (o3 = true), r3 != null) {
       for (; _3 < r3.length; _3++)
-        if ((s2 = r3[_3]) && "setAttribute" in s2 == !!d2 && (d2 ? s2.localName === d2 : s2.nodeType === 3)) {
-          l3 = s2, r3[_3] = null;
+        if ((s3 = r3[_3]) && "setAttribute" in s3 == !!d3 && (d3 ? s3.localName === d3 : s3.nodeType === 3)) {
+          l3 = s3, r3[_3] = null;
           break;
         }
     }
     if (l3 == null) {
-      if (d2 === null)
-        return document.createTextNode(p2);
-      l3 = o3 ? document.createElementNS("http://www.w3.org/2000/svg", d2) : document.createElement(d2, p2.is && p2), r3 = null, c3 = false;
+      if (d3 === null)
+        return document.createTextNode(p3);
+      l3 = o3 ? document.createElementNS("http://www.w3.org/2000/svg", d3) : document.createElement(d3, p3.is && p3), r3 = null, c3 = false;
     }
-    if (d2 === null)
-      y3 === p2 || c3 && l3.data === p2 || (l3.data = p2);
+    if (d3 === null)
+      y3 === p3 || c3 && l3.data === p3 || (l3.data = p3);
     else {
-      if (r3 = r3 && n.call(l3.childNodes), a3 = (y3 = i3.props || e).dangerouslySetInnerHTML, v3 = p2.dangerouslySetInnerHTML, !c3) {
+      if (r3 = r3 && n.call(l3.childNodes), a3 = (y3 = i3.props || e).dangerouslySetInnerHTML, v3 = p3.dangerouslySetInnerHTML, !c3) {
         if (r3 != null)
           for (y3 = {}, _3 = 0; _3 < l3.attributes.length; _3++)
             y3[l3.attributes[_3].name] = l3.attributes[_3].value;
         (v3 || a3) && (v3 && (a3 && v3.__html == a3.__html || v3.__html === l3.innerHTML) || (l3.innerHTML = v3 && v3.__html || ""));
       }
-      if (C(l3, p2, y3, o3, c3), v3)
+      if (C(l3, p3, y3, o3, c3), v3)
         u3.__k = [];
-      else if (_3 = u3.props.children, w(l3, Array.isArray(_3) ? _3 : [_3], u3, i3, t3, o3 && d2 !== "foreignObject", r3, f3, r3 ? r3[0] : i3.__k && k(i3, 0), c3), r3 != null)
+      else if (_3 = u3.props.children, w(l3, Array.isArray(_3) ? _3 : [_3], u3, i3, t3, o3 && d3 !== "foreignObject", r3, f3, r3 ? r3[0] : i3.__k && k(i3, 0), c3), r3 != null)
         for (_3 = r3.length; _3--; )
           r3[_3] != null && h(r3[_3]);
-      c3 || ("value" in p2 && (_3 = p2.value) !== void 0 && (_3 !== l3.value || d2 === "progress" && !_3 || d2 === "option" && _3 !== y3.value) && H(l3, "value", _3, y3.value, false), "checked" in p2 && (_3 = p2.checked) !== void 0 && _3 !== l3.checked && H(l3, "checked", _3, y3.checked, false));
+      c3 || ("value" in p3 && (_3 = p3.value) !== void 0 && (_3 !== l3.value || d3 === "progress" && !_3 || d3 === "option" && _3 !== y3.value) && H(l3, "value", _3, y3.value, false), "checked" in p3 && (_3 = p3.checked) !== void 0 && _3 !== l3.checked && H(l3, "checked", _3, y3.checked, false));
     }
     return l3;
   }
@@ -1125,9 +1474,9 @@
     return t3 >= i3.__.length && i3.__.push({}), i3.__[t3];
   }
   function m2(n2) {
-    return o2 = 1, p(w2, n2);
+    return o2 = 1, p2(w2, n2);
   }
-  function p(n2, r3, o3) {
+  function p2(n2, r3, o3) {
     var i3 = l2(t2++, 2);
     return i3.t = n2, i3.__c || (i3.__ = [o3 ? o3(r3) : w2(void 0, r3), function(n3) {
       var t3 = i3.t(i3.__[0], n3);
@@ -1210,6 +1559,11 @@
   }
   function w2(n2, t3) {
     return typeof t3 == "function" ? t3(n2) : t3;
+  }
+
+  // ../node_modules/d3-array/src/ascending.js
+  function ascending(a3, b3) {
+    return a3 == null || b3 == null ? NaN : a3 < b3 ? -1 : a3 > b3 ? 1 : a3 >= b3 ? 0 : NaN;
   }
 
   // ../node_modules/d3-array/src/descending.js
@@ -1309,17 +1663,17 @@
   Dispatch.prototype = dispatch.prototype = {
     constructor: Dispatch,
     on: function(typename, callback) {
-      var _3 = this._, T2 = parseTypenames(typename + "", _3), t3, i3 = -1, n2 = T2.length;
+      var _3 = this._, T4 = parseTypenames(typename + "", _3), t3, i3 = -1, n2 = T4.length;
       if (arguments.length < 2) {
         while (++i3 < n2)
-          if ((t3 = (typename = T2[i3]).type) && (t3 = get(_3[t3], typename.name)))
+          if ((t3 = (typename = T4[i3]).type) && (t3 = get(_3[t3], typename.name)))
             return t3;
         return;
       }
       if (callback != null && typeof callback !== "function")
         throw new Error("invalid callback: " + callback);
       while (++i3 < n2) {
-        if (t3 = (typename = T2[i3]).type)
+        if (t3 = (typename = T4[i3]).type)
           _3[t3] = set(_3[t3], typename.name, callback);
         else if (callback == null)
           for (t3 in _3)
@@ -1417,8 +1771,8 @@
   function select_default(select) {
     if (typeof select !== "function")
       select = selector_default(select);
-    for (var groups = this._groups, m3 = groups.length, subgroups = new Array(m3), j3 = 0; j3 < m3; ++j3) {
-      for (var group = groups[j3], n2 = group.length, subgroup = subgroups[j3] = new Array(n2), node, subnode, i3 = 0; i3 < n2; ++i3) {
+    for (var groups = this._groups, m3 = groups.length, subgroups = new Array(m3), j4 = 0; j4 < m3; ++j4) {
+      for (var group = groups[j4], n2 = group.length, subgroup = subgroups[j4] = new Array(n2), node, subnode, i3 = 0; i3 < n2; ++i3) {
         if ((node = group[i3]) && (subnode = select.call(node, node.__data__, i3, group))) {
           if ("__data__" in node)
             subnode.__data__ = node.__data__;
@@ -1455,8 +1809,8 @@
       select = arrayAll(select);
     else
       select = selectorAll_default(select);
-    for (var groups = this._groups, m3 = groups.length, subgroups = [], parents = [], j3 = 0; j3 < m3; ++j3) {
-      for (var group = groups[j3], n2 = group.length, node, i3 = 0; i3 < n2; ++i3) {
+    for (var groups = this._groups, m3 = groups.length, subgroups = [], parents = [], j4 = 0; j4 < m3; ++j4) {
+      for (var group = groups[j4], n2 = group.length, node, i3 = 0; i3 < n2; ++i3) {
         if (node = group[i3]) {
           subgroups.push(select.call(node, node.__data__, i3, group));
           parents.push(node);
@@ -1510,8 +1864,8 @@
   function filter_default(match) {
     if (typeof match !== "function")
       match = matcher_default(match);
-    for (var groups = this._groups, m3 = groups.length, subgroups = new Array(m3), j3 = 0; j3 < m3; ++j3) {
-      for (var group = groups[j3], n2 = group.length, subgroup = subgroups[j3] = [], node, i3 = 0; i3 < n2; ++i3) {
+    for (var groups = this._groups, m3 = groups.length, subgroups = new Array(m3), j4 = 0; j4 < m3; ++j4) {
+      for (var group = groups[j4], n2 = group.length, subgroup = subgroups[j4] = [], node, i3 = 0; i3 < n2; ++i3) {
         if ((node = group[i3]) && match.call(node, node.__data__, i3, group)) {
           subgroup.push(node);
         }
@@ -1613,8 +1967,8 @@
     var bind = key ? bindKey : bindIndex, parents = this._parents, groups = this._groups;
     if (typeof value !== "function")
       value = constant_default(value);
-    for (var m3 = groups.length, update = new Array(m3), enter = new Array(m3), exit = new Array(m3), j3 = 0; j3 < m3; ++j3) {
-      var parent = parents[j3], group = groups[j3], groupLength = group.length, data = arraylike(value.call(parent, parent && parent.__data__, j3, parents)), dataLength = data.length, enterGroup = enter[j3] = new Array(dataLength), updateGroup = update[j3] = new Array(dataLength), exitGroup = exit[j3] = new Array(groupLength);
+    for (var m3 = groups.length, update = new Array(m3), enter = new Array(m3), exit = new Array(m3), j4 = 0; j4 < m3; ++j4) {
+      var parent = parents[j4], group = groups[j4], groupLength = group.length, data = arraylike(value.call(parent, parent && parent.__data__, j4, parents)), dataLength = data.length, enterGroup = enter[j4] = new Array(dataLength), updateGroup = update[j4] = new Array(dataLength), exitGroup = exit[j4] = new Array(groupLength);
       bind(parent, group, enterGroup, updateGroup, exitGroup, data, key);
       for (var i0 = 0, i1 = 0, previous, next; i0 < dataLength; ++i0) {
         if (previous = enterGroup[i0]) {
@@ -1665,23 +2019,23 @@
   // ../node_modules/d3-selection/src/selection/merge.js
   function merge_default(context) {
     var selection2 = context.selection ? context.selection() : context;
-    for (var groups0 = this._groups, groups1 = selection2._groups, m0 = groups0.length, m1 = groups1.length, m3 = Math.min(m0, m1), merges = new Array(m0), j3 = 0; j3 < m3; ++j3) {
-      for (var group0 = groups0[j3], group1 = groups1[j3], n2 = group0.length, merge = merges[j3] = new Array(n2), node, i3 = 0; i3 < n2; ++i3) {
+    for (var groups0 = this._groups, groups1 = selection2._groups, m0 = groups0.length, m1 = groups1.length, m3 = Math.min(m0, m1), merges = new Array(m0), j4 = 0; j4 < m3; ++j4) {
+      for (var group0 = groups0[j4], group1 = groups1[j4], n2 = group0.length, merge = merges[j4] = new Array(n2), node, i3 = 0; i3 < n2; ++i3) {
         if (node = group0[i3] || group1[i3]) {
           merge[i3] = node;
         }
       }
     }
-    for (; j3 < m0; ++j3) {
-      merges[j3] = groups0[j3];
+    for (; j4 < m0; ++j4) {
+      merges[j4] = groups0[j4];
     }
     return new Selection(merges, this._parents);
   }
 
   // ../node_modules/d3-selection/src/selection/order.js
   function order_default() {
-    for (var groups = this._groups, j3 = -1, m3 = groups.length; ++j3 < m3; ) {
-      for (var group = groups[j3], i3 = group.length - 1, next = group[i3], node; --i3 >= 0; ) {
+    for (var groups = this._groups, j4 = -1, m3 = groups.length; ++j4 < m3; ) {
+      for (var group = groups[j4], i3 = group.length - 1, next = group[i3], node; --i3 >= 0; ) {
         if (node = group[i3]) {
           if (next && node.compareDocumentPosition(next) ^ 4)
             next.parentNode.insertBefore(node, next);
@@ -1695,12 +2049,12 @@
   // ../node_modules/d3-selection/src/selection/sort.js
   function sort_default(compare) {
     if (!compare)
-      compare = ascending;
+      compare = ascending2;
     function compareNode(a3, b3) {
       return a3 && b3 ? compare(a3.__data__, b3.__data__) : !a3 - !b3;
     }
-    for (var groups = this._groups, m3 = groups.length, sortgroups = new Array(m3), j3 = 0; j3 < m3; ++j3) {
-      for (var group = groups[j3], n2 = group.length, sortgroup = sortgroups[j3] = new Array(n2), node, i3 = 0; i3 < n2; ++i3) {
+    for (var groups = this._groups, m3 = groups.length, sortgroups = new Array(m3), j4 = 0; j4 < m3; ++j4) {
+      for (var group = groups[j4], n2 = group.length, sortgroup = sortgroups[j4] = new Array(n2), node, i3 = 0; i3 < n2; ++i3) {
         if (node = group[i3]) {
           sortgroup[i3] = node;
         }
@@ -1709,7 +2063,7 @@
     }
     return new Selection(sortgroups, this._parents).order();
   }
-  function ascending(a3, b3) {
+  function ascending2(a3, b3) {
     return a3 < b3 ? -1 : a3 > b3 ? 1 : a3 >= b3 ? 0 : NaN;
   }
 
@@ -1728,8 +2082,8 @@
 
   // ../node_modules/d3-selection/src/selection/node.js
   function node_default() {
-    for (var groups = this._groups, j3 = 0, m3 = groups.length; j3 < m3; ++j3) {
-      for (var group = groups[j3], i3 = 0, n2 = group.length; i3 < n2; ++i3) {
+    for (var groups = this._groups, j4 = 0, m3 = groups.length; j4 < m3; ++j4) {
+      for (var group = groups[j4], i3 = 0, n2 = group.length; i3 < n2; ++i3) {
         var node = group[i3];
         if (node)
           return node;
@@ -1753,8 +2107,8 @@
 
   // ../node_modules/d3-selection/src/selection/each.js
   function each_default(callback) {
-    for (var groups = this._groups, j3 = 0, m3 = groups.length; j3 < m3; ++j3) {
-      for (var group = groups[j3], i3 = 0, n2 = group.length, node; i3 < n2; ++i3) {
+    for (var groups = this._groups, j4 = 0, m3 = groups.length; j4 < m3; ++j4) {
+      for (var group = groups[j4], i3 = 0, n2 = group.length, node; i3 < n2; ++i3) {
         if (node = group[i3])
           callback.call(node, node.__data__, i3, group);
       }
@@ -2055,8 +2409,8 @@
       var on = this.__on;
       if (!on)
         return;
-      for (var j3 = 0, i3 = -1, m3 = on.length, o3; j3 < m3; ++j3) {
-        if (o3 = on[j3], (!typename.type || o3.type === typename.type) && o3.name === typename.name) {
+      for (var j4 = 0, i3 = -1, m3 = on.length, o3; j4 < m3; ++j4) {
+        if (o3 = on[j4], (!typename.type || o3.type === typename.type) && o3.name === typename.name) {
           this.removeEventListener(o3.type, o3.listener, o3.options);
         } else {
           on[++i3] = o3;
@@ -2072,8 +2426,8 @@
     return function() {
       var on = this.__on, o3, listener = contextListener(value);
       if (on)
-        for (var j3 = 0, m3 = on.length; j3 < m3; ++j3) {
-          if ((o3 = on[j3]).type === typename.type && o3.name === typename.name) {
+        for (var j4 = 0, m3 = on.length; j4 < m3; ++j4) {
+          if ((o3 = on[j4]).type === typename.type && o3.name === typename.name) {
             this.removeEventListener(o3.type, o3.listener, o3.options);
             this.addEventListener(o3.type, o3.listener = listener, o3.options = options);
             o3.value = value;
@@ -2093,8 +2447,8 @@
     if (arguments.length < 2) {
       var on = this.node().__on;
       if (on)
-        for (var j3 = 0, m3 = on.length, o3; j3 < m3; ++j3) {
-          for (i3 = 0, o3 = on[j3]; i3 < n2; ++i3) {
+        for (var j4 = 0, m3 = on.length, o3; j4 < m3; ++j4) {
+          for (i3 = 0, o3 = on[j4]; i3 < n2; ++i3) {
             if ((t3 = typenames[i3]).type === o3.type && t3.name === o3.name) {
               return o3.value;
             }
@@ -2138,8 +2492,8 @@
 
   // ../node_modules/d3-selection/src/selection/iterator.js
   function* iterator_default() {
-    for (var groups = this._groups, j3 = 0, m3 = groups.length; j3 < m3; ++j3) {
-      for (var group = groups[j3], i3 = 0, n2 = group.length, node; i3 < n2; ++i3) {
+    for (var groups = this._groups, j4 = 0, m3 = groups.length; j4 < m3; ++j4) {
+      for (var group = groups[j4], i3 = 0, n2 = group.length, node; i3 < n2; ++i3) {
         if (node = group[i3])
           yield node;
       }
@@ -2480,14 +2834,14 @@
     value = clampi(value);
     return (value < 16 ? "0" : "") + value.toString(16);
   }
-  function hsla(h3, s2, l3, a3) {
+  function hsla(h3, s3, l3, a3) {
     if (a3 <= 0)
-      h3 = s2 = l3 = NaN;
+      h3 = s3 = l3 = NaN;
     else if (l3 <= 0 || l3 >= 1)
-      h3 = s2 = NaN;
-    else if (s2 <= 0)
+      h3 = s3 = NaN;
+    else if (s3 <= 0)
       h3 = NaN;
-    return new Hsl(h3, s2, l3, a3);
+    return new Hsl(h3, s3, l3, a3);
   }
   function hslConvert(o3) {
     if (o3 instanceof Hsl)
@@ -2499,27 +2853,27 @@
     if (o3 instanceof Hsl)
       return o3;
     o3 = o3.rgb();
-    var r3 = o3.r / 255, g3 = o3.g / 255, b3 = o3.b / 255, min3 = Math.min(r3, g3, b3), max3 = Math.max(r3, g3, b3), h3 = NaN, s2 = max3 - min3, l3 = (max3 + min3) / 2;
-    if (s2) {
+    var r3 = o3.r / 255, g3 = o3.g / 255, b3 = o3.b / 255, min3 = Math.min(r3, g3, b3), max3 = Math.max(r3, g3, b3), h3 = NaN, s3 = max3 - min3, l3 = (max3 + min3) / 2;
+    if (s3) {
       if (r3 === max3)
-        h3 = (g3 - b3) / s2 + (g3 < b3) * 6;
+        h3 = (g3 - b3) / s3 + (g3 < b3) * 6;
       else if (g3 === max3)
-        h3 = (b3 - r3) / s2 + 2;
+        h3 = (b3 - r3) / s3 + 2;
       else
-        h3 = (r3 - g3) / s2 + 4;
-      s2 /= l3 < 0.5 ? max3 + min3 : 2 - max3 - min3;
+        h3 = (r3 - g3) / s3 + 4;
+      s3 /= l3 < 0.5 ? max3 + min3 : 2 - max3 - min3;
       h3 *= 60;
     } else {
-      s2 = l3 > 0 && l3 < 1 ? 0 : h3;
+      s3 = l3 > 0 && l3 < 1 ? 0 : h3;
     }
-    return new Hsl(h3, s2, l3, o3.opacity);
+    return new Hsl(h3, s3, l3, o3.opacity);
   }
-  function hsl(h3, s2, l3, opacity) {
-    return arguments.length === 1 ? hslConvert(h3) : new Hsl(h3, s2, l3, opacity == null ? 1 : opacity);
+  function hsl(h3, s3, l3, opacity) {
+    return arguments.length === 1 ? hslConvert(h3) : new Hsl(h3, s3, l3, opacity == null ? 1 : opacity);
   }
-  function Hsl(h3, s2, l3, opacity) {
+  function Hsl(h3, s3, l3, opacity) {
     this.h = +h3;
-    this.s = +s2;
+    this.s = +s3;
     this.l = +l3;
     this.opacity = +opacity;
   }
@@ -2533,7 +2887,7 @@
       return new Hsl(this.h, this.s, this.l * k3, this.opacity);
     },
     rgb() {
-      var h3 = this.h % 360 + (this.h < 0) * 360, s2 = isNaN(h3) || isNaN(this.s) ? 0 : this.s, l3 = this.l, m22 = l3 + (l3 < 0.5 ? l3 : 1 - l3) * s2, m1 = 2 * l3 - m22;
+      var h3 = this.h % 360 + (this.h < 0) * 360, s3 = isNaN(h3) || isNaN(this.s) ? 0 : this.s, l3 = this.l, m22 = l3 + (l3 < 0.5 ? l3 : 1 - l3) * s3, m1 = 2 * l3 - m22;
       return new Rgb(hsl2rgb(h3 >= 240 ? h3 - 240 : h3 + 120, m1, m22), hsl2rgb(h3, m1, m22), hsl2rgb(h3 < 120 ? h3 + 240 : h3 - 120, m1, m22), this.opacity);
     },
     clamp() {
@@ -2584,9 +2938,9 @@
   var constant_default2 = (x3) => () => x3;
 
   // ../node_modules/d3-interpolate/src/color.js
-  function linear(a3, d2) {
+  function linear(a3, d3) {
     return function(t3) {
-      return a3 + t3 * d2;
+      return a3 + t3 * d3;
     };
   }
   function exponential(a3, b3, y3) {
@@ -2600,8 +2954,8 @@
     };
   }
   function nogamma(a3, b3) {
-    var d2 = b3 - a3;
-    return d2 ? linear(a3, d2) : constant_default2(isNaN(a3) ? b3 : a3);
+    var d3 = b3 - a3;
+    return d3 ? linear(a3, d3) : constant_default2(isNaN(a3) ? b3 : a3);
   }
 
   // ../node_modules/d3-interpolate/src/rgb.js
@@ -2665,38 +3019,38 @@
     };
   }
   function string_default(a3, b3) {
-    var bi = reA.lastIndex = reB.lastIndex = 0, am, bm, bs, i3 = -1, s2 = [], q = [];
+    var bi = reA.lastIndex = reB.lastIndex = 0, am, bm, bs, i3 = -1, s3 = [], q3 = [];
     a3 = a3 + "", b3 = b3 + "";
     while ((am = reA.exec(a3)) && (bm = reB.exec(b3))) {
       if ((bs = bm.index) > bi) {
         bs = b3.slice(bi, bs);
-        if (s2[i3])
-          s2[i3] += bs;
+        if (s3[i3])
+          s3[i3] += bs;
         else
-          s2[++i3] = bs;
+          s3[++i3] = bs;
       }
       if ((am = am[0]) === (bm = bm[0])) {
-        if (s2[i3])
-          s2[i3] += bm;
+        if (s3[i3])
+          s3[i3] += bm;
         else
-          s2[++i3] = bm;
+          s3[++i3] = bm;
       } else {
-        s2[++i3] = null;
-        q.push({ i: i3, x: number_default(am, bm) });
+        s3[++i3] = null;
+        q3.push({ i: i3, x: number_default(am, bm) });
       }
       bi = reB.lastIndex;
     }
     if (bi < b3.length) {
       bs = b3.slice(bi);
-      if (s2[i3])
-        s2[i3] += bs;
+      if (s3[i3])
+        s3[i3] += bs;
       else
-        s2[++i3] = bs;
+        s3[++i3] = bs;
     }
-    return s2.length < 2 ? q[0] ? one(q[0].x) : zero(b3) : (b3 = q.length, function(t3) {
+    return s3.length < 2 ? q3[0] ? one(q3[0].x) : zero(b3) : (b3 = q3.length, function(t3) {
       for (var i4 = 0, o3; i4 < b3; ++i4)
-        s2[(o3 = q[i4]).i] = o3.x(t3);
-      return s2.join("");
+        s3[(o3 = q3[i4]).i] = o3.x(t3);
+      return s3.join("");
     });
   }
 
@@ -2710,15 +3064,15 @@
     scaleX: 1,
     scaleY: 1
   };
-  function decompose_default(a3, b3, c3, d2, e3, f3) {
+  function decompose_default(a3, b3, c3, d3, e3, f3) {
     var scaleX, scaleY, skewX;
     if (scaleX = Math.sqrt(a3 * a3 + b3 * b3))
       a3 /= scaleX, b3 /= scaleX;
-    if (skewX = a3 * c3 + b3 * d2)
-      c3 -= a3 * skewX, d2 -= b3 * skewX;
-    if (scaleY = Math.sqrt(c3 * c3 + d2 * d2))
-      c3 /= scaleY, d2 /= scaleY, skewX /= scaleY;
-    if (a3 * d2 < b3 * c3)
+    if (skewX = a3 * c3 + b3 * d3)
+      c3 -= a3 * skewX, d3 -= b3 * skewX;
+    if (scaleY = Math.sqrt(c3 * c3 + d3 * d3))
+      c3 /= scaleY, d3 /= scaleY, skewX /= scaleY;
+    if (a3 * d3 < b3 * c3)
       a3 = -a3, b3 = -b3, skewX = -skewX, scaleX = -scaleX;
     return {
       translateX: e3,
@@ -2750,56 +3104,56 @@
 
   // ../node_modules/d3-interpolate/src/transform/index.js
   function interpolateTransform(parse, pxComma, pxParen, degParen) {
-    function pop(s2) {
-      return s2.length ? s2.pop() + " " : "";
+    function pop(s3) {
+      return s3.length ? s3.pop() + " " : "";
     }
-    function translate(xa, ya, xb, yb, s2, q) {
+    function translate(xa, ya, xb, yb, s3, q3) {
       if (xa !== xb || ya !== yb) {
-        var i3 = s2.push("translate(", null, pxComma, null, pxParen);
-        q.push({ i: i3 - 4, x: number_default(xa, xb) }, { i: i3 - 2, x: number_default(ya, yb) });
+        var i3 = s3.push("translate(", null, pxComma, null, pxParen);
+        q3.push({ i: i3 - 4, x: number_default(xa, xb) }, { i: i3 - 2, x: number_default(ya, yb) });
       } else if (xb || yb) {
-        s2.push("translate(" + xb + pxComma + yb + pxParen);
+        s3.push("translate(" + xb + pxComma + yb + pxParen);
       }
     }
-    function rotate(a3, b3, s2, q) {
+    function rotate(a3, b3, s3, q3) {
       if (a3 !== b3) {
         if (a3 - b3 > 180)
           b3 += 360;
         else if (b3 - a3 > 180)
           a3 += 360;
-        q.push({ i: s2.push(pop(s2) + "rotate(", null, degParen) - 2, x: number_default(a3, b3) });
+        q3.push({ i: s3.push(pop(s3) + "rotate(", null, degParen) - 2, x: number_default(a3, b3) });
       } else if (b3) {
-        s2.push(pop(s2) + "rotate(" + b3 + degParen);
+        s3.push(pop(s3) + "rotate(" + b3 + degParen);
       }
     }
-    function skewX(a3, b3, s2, q) {
+    function skewX(a3, b3, s3, q3) {
       if (a3 !== b3) {
-        q.push({ i: s2.push(pop(s2) + "skewX(", null, degParen) - 2, x: number_default(a3, b3) });
+        q3.push({ i: s3.push(pop(s3) + "skewX(", null, degParen) - 2, x: number_default(a3, b3) });
       } else if (b3) {
-        s2.push(pop(s2) + "skewX(" + b3 + degParen);
+        s3.push(pop(s3) + "skewX(" + b3 + degParen);
       }
     }
-    function scale(xa, ya, xb, yb, s2, q) {
+    function scale(xa, ya, xb, yb, s3, q3) {
       if (xa !== xb || ya !== yb) {
-        var i3 = s2.push(pop(s2) + "scale(", null, ",", null, ")");
-        q.push({ i: i3 - 4, x: number_default(xa, xb) }, { i: i3 - 2, x: number_default(ya, yb) });
+        var i3 = s3.push(pop(s3) + "scale(", null, ",", null, ")");
+        q3.push({ i: i3 - 4, x: number_default(xa, xb) }, { i: i3 - 2, x: number_default(ya, yb) });
       } else if (xb !== 1 || yb !== 1) {
-        s2.push(pop(s2) + "scale(" + xb + "," + yb + ")");
+        s3.push(pop(s3) + "scale(" + xb + "," + yb + ")");
       }
     }
     return function(a3, b3) {
-      var s2 = [], q = [];
+      var s3 = [], q3 = [];
       a3 = parse(a3), b3 = parse(b3);
-      translate(a3.translateX, a3.translateY, b3.translateX, b3.translateY, s2, q);
-      rotate(a3.rotate, b3.rotate, s2, q);
-      skewX(a3.skewX, b3.skewX, s2, q);
-      scale(a3.scaleX, a3.scaleY, b3.scaleX, b3.scaleY, s2, q);
+      translate(a3.translateX, a3.translateY, b3.translateX, b3.translateY, s3, q3);
+      rotate(a3.rotate, b3.rotate, s3, q3);
+      skewX(a3.skewX, b3.skewX, s3, q3);
+      scale(a3.scaleX, a3.scaleY, b3.scaleX, b3.scaleY, s3, q3);
       a3 = b3 = null;
       return function(t3) {
-        var i3 = -1, n2 = q.length, o3;
+        var i3 = -1, n2 = q3.length, o3;
         while (++i3 < n2)
-          s2[(o3 = q[i3]).i] = o3.x(t3);
-        return s2.join("");
+          s3[(o3 = q3[i3]).i] = o3.x(t3);
+        return s3.join("");
       };
     };
   }
@@ -2989,7 +3343,7 @@
         start2(elapsed - self.delay);
     }
     function start2(elapsed) {
-      var i3, j3, n2, o3;
+      var i3, j4, n2, o3;
       if (self.state !== SCHEDULED)
         return stop();
       for (i3 in schedules) {
@@ -3023,12 +3377,12 @@
         return;
       self.state = STARTED;
       tween = new Array(n2 = self.tween.length);
-      for (i3 = 0, j3 = -1; i3 < n2; ++i3) {
+      for (i3 = 0, j4 = -1; i3 < n2; ++i3) {
         if (o3 = self.tween[i3].value.call(node, node.__data__, self.index, self.group)) {
-          tween[++j3] = o3;
+          tween[++j4] = o3;
         }
       }
-      tween.length = j3 + 1;
+      tween.length = j4 + 1;
     }
     function tick(elapsed) {
       var t3 = elapsed < self.duration ? self.ease.call(null, elapsed / self.duration) : (self.timer.restart(stop), self.state = ENDING, 1), i3 = -1, n2 = tween.length;
@@ -3308,8 +3662,8 @@
   function filter_default2(match) {
     if (typeof match !== "function")
       match = matcher_default(match);
-    for (var groups = this._groups, m3 = groups.length, subgroups = new Array(m3), j3 = 0; j3 < m3; ++j3) {
-      for (var group = groups[j3], n2 = group.length, subgroup = subgroups[j3] = [], node, i3 = 0; i3 < n2; ++i3) {
+    for (var groups = this._groups, m3 = groups.length, subgroups = new Array(m3), j4 = 0; j4 < m3; ++j4) {
+      for (var group = groups[j4], n2 = group.length, subgroup = subgroups[j4] = [], node, i3 = 0; i3 < n2; ++i3) {
         if ((node = group[i3]) && match.call(node, node.__data__, i3, group)) {
           subgroup.push(node);
         }
@@ -3322,15 +3676,15 @@
   function merge_default2(transition2) {
     if (transition2._id !== this._id)
       throw new Error();
-    for (var groups0 = this._groups, groups1 = transition2._groups, m0 = groups0.length, m1 = groups1.length, m3 = Math.min(m0, m1), merges = new Array(m0), j3 = 0; j3 < m3; ++j3) {
-      for (var group0 = groups0[j3], group1 = groups1[j3], n2 = group0.length, merge = merges[j3] = new Array(n2), node, i3 = 0; i3 < n2; ++i3) {
+    for (var groups0 = this._groups, groups1 = transition2._groups, m0 = groups0.length, m1 = groups1.length, m3 = Math.min(m0, m1), merges = new Array(m0), j4 = 0; j4 < m3; ++j4) {
+      for (var group0 = groups0[j4], group1 = groups1[j4], n2 = group0.length, merge = merges[j4] = new Array(n2), node, i3 = 0; i3 < n2; ++i3) {
         if (node = group0[i3] || group1[i3]) {
           merge[i3] = node;
         }
       }
     }
-    for (; j3 < m0; ++j3) {
-      merges[j3] = groups0[j3];
+    for (; j4 < m0; ++j4) {
+      merges[j4] = groups0[j4];
     }
     return new Transition(merges, this._parents, this._name, this._id);
   }
@@ -3378,8 +3732,8 @@
     var name = this._name, id2 = this._id;
     if (typeof select !== "function")
       select = selector_default(select);
-    for (var groups = this._groups, m3 = groups.length, subgroups = new Array(m3), j3 = 0; j3 < m3; ++j3) {
-      for (var group = groups[j3], n2 = group.length, subgroup = subgroups[j3] = new Array(n2), node, subnode, i3 = 0; i3 < n2; ++i3) {
+    for (var groups = this._groups, m3 = groups.length, subgroups = new Array(m3), j4 = 0; j4 < m3; ++j4) {
+      for (var group = groups[j4], n2 = group.length, subgroup = subgroups[j4] = new Array(n2), node, subnode, i3 = 0; i3 < n2; ++i3) {
         if ((node = group[i3]) && (subnode = select.call(node, node.__data__, i3, group))) {
           if ("__data__" in node)
             subnode.__data__ = node.__data__;
@@ -3396,8 +3750,8 @@
     var name = this._name, id2 = this._id;
     if (typeof select !== "function")
       select = selectorAll_default(select);
-    for (var groups = this._groups, m3 = groups.length, subgroups = [], parents = [], j3 = 0; j3 < m3; ++j3) {
-      for (var group = groups[j3], n2 = group.length, node, i3 = 0; i3 < n2; ++i3) {
+    for (var groups = this._groups, m3 = groups.length, subgroups = [], parents = [], j4 = 0; j4 < m3; ++j4) {
+      for (var group = groups[j4], n2 = group.length, node, i3 = 0; i3 < n2; ++i3) {
         if (node = group[i3]) {
           for (var children2 = select.call(node, node.__data__, i3, group), child, inherit2 = get2(node, id2), k3 = 0, l3 = children2.length; k3 < l3; ++k3) {
             if (child = children2[k3]) {
@@ -3536,8 +3890,8 @@
   // ../node_modules/d3-transition/src/transition/transition.js
   function transition_default() {
     var name = this._name, id0 = this._id, id1 = newId();
-    for (var groups = this._groups, m3 = groups.length, j3 = 0; j3 < m3; ++j3) {
-      for (var group = groups[j3], n2 = group.length, node, i3 = 0; i3 < n2; ++i3) {
+    for (var groups = this._groups, m3 = groups.length, j4 = 0; j4 < m3; ++j4) {
+      for (var group = groups[j4], n2 = group.length, node, i3 = 0; i3 < n2; ++i3) {
         if (node = group[i3]) {
           var inherit2 = get2(node, id0);
           schedule_default(node, name, id1, i3, group, {
@@ -3651,8 +4005,8 @@
     } else {
       id2 = newId(), (timing = defaultTiming).time = now(), name = name == null ? null : name + "";
     }
-    for (var groups = this._groups, m3 = groups.length, j3 = 0; j3 < m3; ++j3) {
-      for (var group = groups[j3], n2 = group.length, node, i3 = 0; i3 < n2; ++i3) {
+    for (var groups = this._groups, m3 = groups.length, j4 = 0; j4 < m3; ++j4) {
+      for (var group = groups[j4], n2 = group.length, node, i3 = 0; i3 < n2; ++i3) {
         if (node = group[i3]) {
           schedule_default(node, name, id2, i3, group, timing || inherit(node, id2));
         }
@@ -3778,8 +4132,8 @@
         this._ += "A" + r3 + "," + r3 + ",0," + +(da >= pi) + "," + cw + "," + (this._x1 = x3 + r3 * Math.cos(a1)) + "," + (this._y1 = y3 + r3 * Math.sin(a1));
       }
     },
-    rect: function(x3, y3, w3, h3) {
-      this._ += "M" + (this._x0 = this._x1 = +x3) + "," + (this._y0 = this._y1 = +y3) + "h" + +w3 + "v" + +h3 + "h" + -w3 + "Z";
+    rect: function(x3, y3, w4, h3) {
+      this._ += "M" + (this._x0 = this._x1 = +x3) + "," + (this._y0 = this._y1 = +y3) + "h" + +w4 + "v" + +h3 + "h" + -w4 + "Z";
     },
     toString: function() {
       return this._;
@@ -3791,8 +4145,8 @@
   function formatDecimal_default(x3) {
     return Math.abs(x3 = Math.round(x3)) >= 1e21 ? x3.toLocaleString("en").replace(/,/g, "") : x3.toString(10);
   }
-  function formatDecimalParts(x3, p2) {
-    if ((i3 = (x3 = p2 ? x3.toExponential(p2 - 1) : x3.toExponential()).indexOf("e")) < 0)
+  function formatDecimalParts(x3, p3) {
+    if ((i3 = (x3 = p3 ? x3.toExponential(p3 - 1) : x3.toExponential()).indexOf("e")) < 0)
       return null;
     var i3, coefficient = x3.slice(0, i3);
     return [
@@ -3809,14 +4163,14 @@
   // ../node_modules/d3-format/src/formatGroup.js
   function formatGroup_default(grouping, thousands) {
     return function(value, width) {
-      var i3 = value.length, t3 = [], j3 = 0, g3 = grouping[0], length = 0;
+      var i3 = value.length, t3 = [], j4 = 0, g3 = grouping[0], length = 0;
       while (i3 > 0 && g3 > 0) {
         if (length + g3 + 1 > width)
           g3 = Math.max(1, width - length);
         t3.push(value.substring(i3 -= g3, i3 + g3));
         if ((length += g3 + 1) > width)
           break;
-        g3 = grouping[j3 = (j3 + 1) % grouping.length];
+        g3 = grouping[j4 = (j4 + 1) % grouping.length];
       }
       return t3.reverse().join(thousands);
     };
@@ -3868,10 +4222,10 @@
   };
 
   // ../node_modules/d3-format/src/formatTrim.js
-  function formatTrim_default(s2) {
+  function formatTrim_default(s3) {
     out:
-      for (var n2 = s2.length, i3 = 1, i0 = -1, i1; i3 < n2; ++i3) {
-        switch (s2[i3]) {
+      for (var n2 = s3.length, i3 = 1, i0 = -1, i1; i3 < n2; ++i3) {
+        switch (s3[i3]) {
           case ".":
             i0 = i1 = i3;
             break;
@@ -3881,46 +4235,46 @@
             i1 = i3;
             break;
           default:
-            if (!+s2[i3])
+            if (!+s3[i3])
               break out;
             if (i0 > 0)
               i0 = 0;
             break;
         }
       }
-    return i0 > 0 ? s2.slice(0, i0) + s2.slice(i1 + 1) : s2;
+    return i0 > 0 ? s3.slice(0, i0) + s3.slice(i1 + 1) : s3;
   }
 
   // ../node_modules/d3-format/src/formatPrefixAuto.js
   var prefixExponent;
-  function formatPrefixAuto_default(x3, p2) {
-    var d2 = formatDecimalParts(x3, p2);
-    if (!d2)
+  function formatPrefixAuto_default(x3, p3) {
+    var d3 = formatDecimalParts(x3, p3);
+    if (!d3)
       return x3 + "";
-    var coefficient = d2[0], exponent = d2[1], i3 = exponent - (prefixExponent = Math.max(-8, Math.min(8, Math.floor(exponent / 3))) * 3) + 1, n2 = coefficient.length;
-    return i3 === n2 ? coefficient : i3 > n2 ? coefficient + new Array(i3 - n2 + 1).join("0") : i3 > 0 ? coefficient.slice(0, i3) + "." + coefficient.slice(i3) : "0." + new Array(1 - i3).join("0") + formatDecimalParts(x3, Math.max(0, p2 + i3 - 1))[0];
+    var coefficient = d3[0], exponent = d3[1], i3 = exponent - (prefixExponent = Math.max(-8, Math.min(8, Math.floor(exponent / 3))) * 3) + 1, n2 = coefficient.length;
+    return i3 === n2 ? coefficient : i3 > n2 ? coefficient + new Array(i3 - n2 + 1).join("0") : i3 > 0 ? coefficient.slice(0, i3) + "." + coefficient.slice(i3) : "0." + new Array(1 - i3).join("0") + formatDecimalParts(x3, Math.max(0, p3 + i3 - 1))[0];
   }
 
   // ../node_modules/d3-format/src/formatRounded.js
-  function formatRounded_default(x3, p2) {
-    var d2 = formatDecimalParts(x3, p2);
-    if (!d2)
+  function formatRounded_default(x3, p3) {
+    var d3 = formatDecimalParts(x3, p3);
+    if (!d3)
       return x3 + "";
-    var coefficient = d2[0], exponent = d2[1];
+    var coefficient = d3[0], exponent = d3[1];
     return exponent < 0 ? "0." + new Array(-exponent).join("0") + coefficient : coefficient.length > exponent + 1 ? coefficient.slice(0, exponent + 1) + "." + coefficient.slice(exponent + 1) : coefficient + new Array(exponent - coefficient.length + 2).join("0");
   }
 
   // ../node_modules/d3-format/src/formatTypes.js
   var formatTypes_default = {
-    "%": (x3, p2) => (x3 * 100).toFixed(p2),
+    "%": (x3, p3) => (x3 * 100).toFixed(p3),
     "b": (x3) => Math.round(x3).toString(2),
     "c": (x3) => x3 + "",
     "d": formatDecimal_default,
-    "e": (x3, p2) => x3.toExponential(p2),
-    "f": (x3, p2) => x3.toFixed(p2),
-    "g": (x3, p2) => x3.toPrecision(p2),
+    "e": (x3, p3) => x3.toExponential(p3),
+    "f": (x3, p3) => x3.toFixed(p3),
+    "g": (x3, p3) => x3.toPrecision(p3),
     "o": (x3) => Math.round(x3).toString(8),
-    "p": (x3, p2) => formatRounded_default(x3 * 100, p2),
+    "p": (x3, p3) => formatRounded_default(x3 * 100, p3),
     "r": formatRounded_default,
     "s": formatPrefixAuto_default,
     "X": (x3) => Math.round(x3).toString(16).toUpperCase(),
@@ -4048,12 +4402,12 @@
   var implicit = Symbol("implicit");
   function ordinal() {
     var index = new InternMap(), domain = [], range = [], unknown = implicit;
-    function scale(d2) {
-      let i3 = index.get(d2);
+    function scale(d3) {
+      let i3 = index.get(d3);
       if (i3 === void 0) {
         if (unknown !== implicit)
           return unknown;
-        index.set(d2, i3 = domain.push(d2) - 1);
+        index.set(d3, i3 = domain.push(d3) - 1);
       }
       return range[i3 % range.length];
     }
@@ -4123,20 +4477,20 @@
   }
 
   // ../node_modules/d3-shape/src/arc.js
-  function arcInnerRadius(d2) {
-    return d2.innerRadius;
+  function arcInnerRadius(d3) {
+    return d3.innerRadius;
   }
-  function arcOuterRadius(d2) {
-    return d2.outerRadius;
+  function arcOuterRadius(d3) {
+    return d3.outerRadius;
   }
-  function arcStartAngle(d2) {
-    return d2.startAngle;
+  function arcStartAngle(d3) {
+    return d3.startAngle;
   }
-  function arcEndAngle(d2) {
-    return d2.endAngle;
+  function arcEndAngle(d3) {
+    return d3.endAngle;
   }
-  function arcPadAngle(d2) {
-    return d2 && d2.padAngle;
+  function arcPadAngle(d3) {
+    return d3 && d3.padAngle;
   }
   function intersect(x0, y0, x1, y1, x22, y22, x3, y3) {
     var x10 = x1 - x0, y10 = y1 - y0, x32 = x3 - x22, y32 = y3 - y22, t3 = y32 * x10 - x32 * y10;
@@ -4146,7 +4500,7 @@
     return [x0 + t3 * x10, y0 + t3 * y10];
   }
   function cornerTangents(x0, y0, x1, y1, r1, rc, cw) {
-    var x01 = x0 - x1, y01 = y0 - y1, lo = (cw ? rc : -rc) / sqrt(x01 * x01 + y01 * y01), ox = lo * y01, oy = -lo * x01, x11 = x0 + ox, y11 = y0 + oy, x10 = x1 + ox, y10 = y1 + oy, x00 = (x11 + x10) / 2, y00 = (y11 + y10) / 2, dx = x10 - x11, dy = y10 - y11, d2 = dx * dx + dy * dy, r3 = r1 - rc, D = x11 * y10 - x10 * y11, d3 = (dy < 0 ? -1 : 1) * sqrt(max2(0, r3 * r3 * d2 - D * D)), cx0 = (D * dy - dx * d3) / d2, cy0 = (-D * dx - dy * d3) / d2, cx1 = (D * dy + dx * d3) / d2, cy1 = (-D * dx + dy * d3) / d2, dx0 = cx0 - x00, dy0 = cy0 - y00, dx1 = cx1 - x00, dy1 = cy1 - y00;
+    var x01 = x0 - x1, y01 = y0 - y1, lo = (cw ? rc : -rc) / sqrt(x01 * x01 + y01 * y01), ox = lo * y01, oy = -lo * x01, x11 = x0 + ox, y11 = y0 + oy, x10 = x1 + ox, y10 = y1 + oy, x00 = (x11 + x10) / 2, y00 = (y11 + y10) / 2, dx = x10 - x11, dy = y10 - y11, d22 = dx * dx + dy * dy, r3 = r1 - rc, D2 = x11 * y10 - x10 * y11, d3 = (dy < 0 ? -1 : 1) * sqrt(max2(0, r3 * r3 * d22 - D2 * D2)), cx0 = (D2 * dy - dx * d3) / d22, cy0 = (-D2 * dx - dy * d3) / d22, cx1 = (D2 * dy + dx * d3) / d22, cy1 = (-D2 * dx + dy * d3) / d22, dx0 = cx0 - x00, dy0 = cy0 - y00, dx1 = cx1 - x00, dy1 = cy1 - y00;
     if (dx0 * dx0 + dy0 * dy0 > dx1 * dx1 + dy1 * dy1)
       cx0 = cx1, cy0 = cy1;
     return {
@@ -4275,36 +4629,36 @@
   }
 
   // ../node_modules/d3-shape/src/identity.js
-  function identity_default2(d2) {
-    return d2;
+  function identity_default2(d3) {
+    return d3;
   }
 
   // ../node_modules/d3-shape/src/pie.js
   function pie_default() {
     var value = identity_default2, sortValues = descending_default, sort = null, startAngle = constant_default4(0), endAngle = constant_default4(tau2), padAngle = constant_default4(0);
     function pie(data) {
-      var i3, n2 = (data = array_default(data)).length, j3, k3, sum2 = 0, index = new Array(n2), arcs = new Array(n2), a0 = +startAngle.apply(this, arguments), da = Math.min(tau2, Math.max(-tau2, endAngle.apply(this, arguments) - a0)), a1, p2 = Math.min(Math.abs(da) / n2, padAngle.apply(this, arguments)), pa = p2 * (da < 0 ? -1 : 1), v3;
+      var i3, n2 = (data = array_default(data)).length, j4, k3, sum2 = 0, index = new Array(n2), arcs = new Array(n2), a0 = +startAngle.apply(this, arguments), da = Math.min(tau2, Math.max(-tau2, endAngle.apply(this, arguments) - a0)), a1, p3 = Math.min(Math.abs(da) / n2, padAngle.apply(this, arguments)), pa = p3 * (da < 0 ? -1 : 1), v3;
       for (i3 = 0; i3 < n2; ++i3) {
         if ((v3 = arcs[index[i3] = i3] = +value(data[i3], i3, data)) > 0) {
           sum2 += v3;
         }
       }
       if (sortValues != null)
-        index.sort(function(i4, j4) {
-          return sortValues(arcs[i4], arcs[j4]);
+        index.sort(function(i4, j5) {
+          return sortValues(arcs[i4], arcs[j5]);
         });
       else if (sort != null)
-        index.sort(function(i4, j4) {
-          return sort(data[i4], data[j4]);
+        index.sort(function(i4, j5) {
+          return sort(data[i4], data[j5]);
         });
       for (i3 = 0, k3 = sum2 ? (da - n2 * pa) / sum2 : 0; i3 < n2; ++i3, a0 = a1) {
-        j3 = index[i3], v3 = arcs[j3], a1 = a0 + (v3 > 0 ? v3 * k3 : 0) + pa, arcs[j3] = {
-          data: data[j3],
+        j4 = index[i3], v3 = arcs[j4], a1 = a0 + (v3 > 0 ? v3 * k3 : 0) + pa, arcs[j4] = {
+          data: data[j4],
           index: i3,
           value: v3,
           startAngle: a0,
           endAngle: a1,
-          padAngle: p2
+          padAngle: p3
         };
       }
       return arcs;
@@ -4387,7 +4741,7 @@
     const height = 200;
     const colors = props.sections.map((_3, i3) => Blues_default(i3 / props.sections.length));
     const color2 = ordinal(props.sections, colors);
-    const arcs = pie_default().padAngle(0.01).value((s2) => s2.len)(props.sections);
+    const arcs = pie_default().padAngle(0.01).value((s3) => s3.len)(props.sections);
     const arc = arc_default().innerRadius(width / 2 * 0.6).outerRadius(width / 2 * 0.95);
     return /* @__PURE__ */ v("svg", {
       width,
@@ -4396,7 +4750,7 @@
     }, /* @__PURE__ */ v("g", {
       strokeLinejoin: "round",
       strokeWidth: "2",
-      ref: (g3) => select_default2(g3).selectAll("path").data(arcs).join("path").attr("fill", (d2) => color2(d2.data)).attr("stroke", (d2) => d2.data === props.hovered ? "black" : "none").attr("d", arc).on("mouseover", (ev, d2) => props.onHover(d2.data)).on("mouseout", (ev, d2) => props.onHover(void 0)).on("click", (e3, d2) => props.onClick(d2.data))
+      ref: (g3) => select_default2(g3).selectAll("path").data(arcs).join("path").attr("fill", (d3) => color2(d3.data)).attr("stroke", (d3) => d3.data === props.hovered ? "black" : "none").attr("d", arc).on("mouseover", (ev, d3) => props.onHover(d3.data)).on("mouseout", (ev, d3) => props.onHover(void 0)).on("click", (e3, d3) => props.onClick(d3.data))
     }));
   }
   function SectionTable(props) {
@@ -4514,6 +4868,331 @@
       }, /* @__PURE__ */ v("button", {
         onClick: () => this.setState({ limit: this.state.limit + 1e3 })
       }, "show", " ", Math.min(1e3, this.props.children.length - this.rows.length), " ", "more")))));
+    }
+  };
+
+  // ../node_modules/preact/compat/dist/compat.module.js
+  function C2(n2, t3) {
+    for (var e3 in t3)
+      n2[e3] = t3[e3];
+    return n2;
+  }
+  function S2(n2, t3) {
+    for (var e3 in n2)
+      if (e3 !== "__source" && !(e3 in t3))
+        return true;
+    for (var r3 in t3)
+      if (r3 !== "__source" && n2[r3] !== t3[r3])
+        return true;
+    return false;
+  }
+  function E(n2) {
+    this.props = n2;
+  }
+  (E.prototype = new _()).isPureReactComponent = true, E.prototype.shouldComponentUpdate = function(n2, t3) {
+    return S2(this.props, n2) || S2(this.state, t3);
+  };
+  var w3 = l.__b;
+  l.__b = function(n2) {
+    n2.type && n2.type.__f && n2.ref && (n2.props.ref = n2.ref, n2.ref = null), w3 && w3(n2);
+  };
+  var R = typeof Symbol != "undefined" && Symbol.for && Symbol.for("react.forward_ref") || 3911;
+  var A3 = l.__e;
+  l.__e = function(n2, t3, e3, r3) {
+    if (n2.then) {
+      for (var u3, o3 = t3; o3 = o3.__; )
+        if ((u3 = o3.__c) && u3.__c)
+          return t3.__e == null && (t3.__e = e3.__e, t3.__k = e3.__k), u3.__c(n2, t3);
+    }
+    A3(n2, t3, e3, r3);
+  };
+  var O2 = l.unmount;
+  function L2() {
+    this.__u = 0, this.t = null, this.__b = null;
+  }
+  function U(n2) {
+    var t3 = n2.__.__c;
+    return t3 && t3.__e && t3.__e(n2);
+  }
+  function M2() {
+    this.u = null, this.o = null;
+  }
+  l.unmount = function(n2) {
+    var t3 = n2.__c;
+    t3 && t3.__R && t3.__R(), t3 && n2.__h === true && (n2.type = null), O2 && O2(n2);
+  }, (L2.prototype = new _()).__c = function(n2, t3) {
+    var e3 = t3.__c, r3 = this;
+    r3.t == null && (r3.t = []), r3.t.push(e3);
+    var u3 = U(r3.__v), o3 = false, i3 = function() {
+      o3 || (o3 = true, e3.__R = null, u3 ? u3(l3) : l3());
+    };
+    e3.__R = i3;
+    var l3 = function() {
+      if (!--r3.__u) {
+        if (r3.state.__e) {
+          var n3 = r3.state.__e;
+          r3.__v.__k[0] = function n4(t5, e4, r4) {
+            return t5 && (t5.__v = null, t5.__k = t5.__k && t5.__k.map(function(t6) {
+              return n4(t6, e4, r4);
+            }), t5.__c && t5.__c.__P === e4 && (t5.__e && r4.insertBefore(t5.__e, t5.__d), t5.__c.__e = true, t5.__c.__P = r4)), t5;
+          }(n3, n3.__c.__P, n3.__c.__O);
+        }
+        var t4;
+        for (r3.setState({ __e: r3.__b = null }); t4 = r3.t.pop(); )
+          t4.forceUpdate();
+      }
+    }, f3 = t3.__h === true;
+    r3.__u++ || f3 || r3.setState({ __e: r3.__b = r3.__v.__k[0] }), n2.then(i3, i3);
+  }, L2.prototype.componentWillUnmount = function() {
+    this.t = [];
+  }, L2.prototype.render = function(n2, t3) {
+    if (this.__b) {
+      if (this.__v.__k) {
+        var e3 = document.createElement("div"), r3 = this.__v.__k[0].__c;
+        this.__v.__k[0] = function n3(t4, e4, r4) {
+          return t4 && (t4.__c && t4.__c.__H && (t4.__c.__H.__.forEach(function(n4) {
+            typeof n4.__c == "function" && n4.__c();
+          }), t4.__c.__H = null), (t4 = C2({}, t4)).__c != null && (t4.__c.__P === r4 && (t4.__c.__P = e4), t4.__c = null), t4.__k = t4.__k && t4.__k.map(function(t5) {
+            return n3(t5, e4, r4);
+          })), t4;
+        }(this.__b, e3, r3.__O = r3.__P);
+      }
+      this.__b = null;
+    }
+    var u3 = t3.__e && v(d, null, n2.fallback);
+    return u3 && (u3.__h = null), [v(d, null, t3.__e ? null : n2.children), u3];
+  };
+  var T3 = function(n2, t3, e3) {
+    if (++e3[1] === e3[0] && n2.o.delete(t3), n2.props.revealOrder && (n2.props.revealOrder[0] !== "t" || !n2.o.size))
+      for (e3 = n2.u; e3; ) {
+        for (; e3.length > 3; )
+          e3.pop()();
+        if (e3[1] < e3[0])
+          break;
+        n2.u = e3 = e3[2];
+      }
+  };
+  (M2.prototype = new _()).__e = function(n2) {
+    var t3 = this, e3 = U(t3.__v), r3 = t3.o.get(n2);
+    return r3[0]++, function(u3) {
+      var o3 = function() {
+        t3.props.revealOrder ? (r3.push(u3), T3(t3, n2, r3)) : u3();
+      };
+      e3 ? e3(o3) : o3();
+    };
+  }, M2.prototype.render = function(n2) {
+    this.u = null, this.o = /* @__PURE__ */ new Map();
+    var t3 = A(n2.children);
+    n2.revealOrder && n2.revealOrder[0] === "b" && t3.reverse();
+    for (var e3 = t3.length; e3--; )
+      this.o.set(t3[e3], this.u = [1, 0, this.u]);
+    return n2.children;
+  }, M2.prototype.componentDidUpdate = M2.prototype.componentDidMount = function() {
+    var n2 = this;
+    this.o.forEach(function(t3, e3) {
+      T3(n2, e3, t3);
+    });
+  };
+  var P2 = typeof Symbol != "undefined" && Symbol.for && Symbol.for("react.element") || 60103;
+  var V = /^(?:accent|alignment|arabic|baseline|cap|clip(?!PathU)|color|dominant|fill|flood|font|glyph(?!R)|horiz|marker(?!H|W|U)|overline|paint|stop|strikethrough|stroke|text(?!L)|underline|unicode|units|v|vector|vert|word|writing|x(?!C))[A-Z]/;
+  var j3 = typeof document != "undefined";
+  var z2 = function(n2) {
+    return (typeof Symbol != "undefined" && typeof Symbol() == "symbol" ? /fil|che|rad/i : /fil|che|ra/i).test(n2);
+  };
+  _.prototype.isReactComponent = {}, ["componentWillMount", "componentWillReceiveProps", "componentWillUpdate"].forEach(function(n2) {
+    Object.defineProperty(_.prototype, n2, { configurable: true, get: function() {
+      return this["UNSAFE_" + n2];
+    }, set: function(t3) {
+      Object.defineProperty(this, n2, { configurable: true, writable: true, value: t3 });
+    } });
+  });
+  var H2 = l.event;
+  function Z() {
+  }
+  function Y2() {
+    return this.cancelBubble;
+  }
+  function q2() {
+    return this.defaultPrevented;
+  }
+  l.event = function(n2) {
+    return H2 && (n2 = H2(n2)), n2.persist = Z, n2.isPropagationStopped = Y2, n2.isDefaultPrevented = q2, n2.nativeEvent = n2;
+  };
+  var G;
+  var J = { configurable: true, get: function() {
+    return this.class;
+  } };
+  var K = l.vnode;
+  l.vnode = function(n2) {
+    var t3 = n2.type, e3 = n2.props, r3 = e3;
+    if (typeof t3 == "string") {
+      var u3 = t3.indexOf("-") === -1;
+      for (var o3 in r3 = {}, e3) {
+        var i3 = e3[o3];
+        j3 && o3 === "children" && t3 === "noscript" || o3 === "value" && "defaultValue" in e3 && i3 == null || (o3 === "defaultValue" && "value" in e3 && e3.value == null ? o3 = "value" : o3 === "download" && i3 === true ? i3 = "" : /ondoubleclick/i.test(o3) ? o3 = "ondblclick" : /^onchange(textarea|input)/i.test(o3 + t3) && !z2(e3.type) ? o3 = "oninput" : /^onfocus$/i.test(o3) ? o3 = "onfocusin" : /^onblur$/i.test(o3) ? o3 = "onfocusout" : /^on(Ani|Tra|Tou|BeforeInp|Compo)/.test(o3) ? o3 = o3.toLowerCase() : u3 && V.test(o3) ? o3 = o3.replace(/[A-Z0-9]/, "-$&").toLowerCase() : i3 === null && (i3 = void 0), r3[o3] = i3);
+      }
+      t3 == "select" && r3.multiple && Array.isArray(r3.value) && (r3.value = A(e3.children).forEach(function(n3) {
+        n3.props.selected = r3.value.indexOf(n3.props.value) != -1;
+      })), t3 == "select" && r3.defaultValue != null && (r3.value = A(e3.children).forEach(function(n3) {
+        n3.props.selected = r3.multiple ? r3.defaultValue.indexOf(n3.props.value) != -1 : r3.defaultValue == n3.props.value;
+      })), n2.props = r3, e3.class != e3.className && (J.enumerable = "className" in e3, e3.className != null && (r3.class = e3.className), Object.defineProperty(r3, "className", J));
+    }
+    n2.$$typeof = P2, K && K(n2);
+  };
+  var Q = l.__r;
+  l.__r = function(n2) {
+    Q && Q(n2), G = n2.__c;
+  };
+  function un(n2) {
+    return !!n2.__k && (S(null, n2), true);
+  }
+
+  // code-treemap.tsx
+  var webtreemap = __toESM(require_webtreemap());
+  function simplifyCPPName(name) {
+    const stack = [];
+    let letters = [];
+    for (let i3 = 0; i3 < name.length; i3++) {
+      switch (name[i3]) {
+        case "(":
+          stack.push(name[i3]);
+          continue;
+        case "<":
+          if (name[i3 + 1] !== "=") {
+            stack.push(name[i3]);
+            continue;
+          }
+          break;
+        case ")":
+          if (stack.pop() !== "(")
+            throw new Error("failed to parse C++ symbol");
+          if (stack.length === 0)
+            letters.push("()");
+          continue;
+        case ">":
+          if (name[i3 + 1] !== "=") {
+            if (stack.pop() !== "<")
+              throw new Error("failed to parse C++ symbol");
+            continue;
+          }
+          break;
+        case "-":
+          if (name[i3 + 1] === ">") {
+            i3++;
+            if (stack.length === 0)
+              letters.push("->");
+            continue;
+          }
+          break;
+      }
+      if (stack.length === 0) {
+        letters.push(name[i3]);
+      }
+    }
+    name = letters.join("");
+    let parts = name.split(" ").filter((part) => part !== "()");
+    let fn = parts.find((part) => part.endsWith("()") && part !== "decltype()");
+    if (fn) {
+      fn = fn.slice(0, -2);
+    } else {
+      fn = parts[parts.length - 1];
+    }
+    return fn.split("::");
+  }
+  function showCodeTreemap(headers, nameMap) {
+    const root2 = new FunctionNode("code");
+    let nameToPath = (name) => name.split(".");
+    const names = Array.from(nameMap.values());
+    if (names.includes("go.buildid")) {
+      nameToPath = (name) => name.split(/[._:]/);
+    } else if (names.some((name) => name.startsWith("std::"))) {
+      nameToPath = simplifyCPPName;
+    }
+    for (const header of headers) {
+      const name = nameMap.get(header.index);
+      let path2 = ["unknown", String(header.index)];
+      try {
+        if (name) {
+          const parsed = nameToPath(name).filter((p3) => p3);
+          if (parsed.length === 0) {
+            console.error(`BUG: failed to simplify ${name}`);
+          } else {
+            path2 = parsed;
+          }
+        }
+      } catch (err) {
+        console.error(`parsing ${JSON.stringify(name)}: ${err}`);
+      }
+      root2.addFunction(header, path2);
+    }
+    root2.sort();
+    const container = document.createElement("div");
+    container.className = "code-treemap-container";
+    document.body.appendChild(container);
+    S(/* @__PURE__ */ v(Treemap, {
+      root: root2,
+      onDone: () => {
+        un(container);
+        container.remove();
+      }
+    }), container);
+  }
+  var Treemap = class extends _ {
+    constructor() {
+      super(...arguments);
+      this.containerRef = p();
+    }
+    render() {
+      const { onDone } = this.props;
+      return /* @__PURE__ */ v(d, null, /* @__PURE__ */ v("button", {
+        className: "code-treemap-done",
+        onClick: onDone
+      }, "\u274C"), /* @__PURE__ */ v("div", {
+        className: "code-treemap",
+        ref: this.containerRef
+      }));
+    }
+    componentDidMount() {
+      const { current: container } = this.containerRef;
+      if (!container) {
+        return;
+      }
+      const { root: root2 } = this.props;
+      webtreemap.render(container, root2, {
+        caption(node) {
+          return `${node.id} (${format(",")(node.size)})`;
+        }
+      });
+    }
+  };
+  var FunctionNode = class {
+    constructor(id2, size = 0) {
+      this.children = [];
+      this.childrenByName = /* @__PURE__ */ new Map();
+      this.id = id2;
+      this.size = size;
+    }
+    addFunction(func, path2) {
+      this.size += func.len;
+      if (path2.length === 1) {
+        const child2 = new FunctionNode(path2[0], func.len);
+        this.children.push(child2);
+        return;
+      }
+      const [head, ...tail] = path2;
+      let child = this.childrenByName.get(head);
+      if (!child) {
+        child = new FunctionNode(head);
+        this.children.push(child);
+        this.childrenByName.set(head, child);
+      }
+      child.addFunction(func, tail);
+    }
+    sort() {
+      this.children.sort((a3, b3) => descending(a3.size, b3.size));
+      for (const child of this.childrenByName.values()) {
+        child.sort();
+      }
     }
   };
 
@@ -4721,7 +5400,6 @@
     };
     const [highlight, setHighlight] = m2(void 0);
     return /* @__PURE__ */ v(Screen, {
-      module: props.module,
       title: `function ${props.func.index}`
     }, /* @__PURE__ */ v("table", null, /* @__PURE__ */ v("tr", null, /* @__PURE__ */ v("th", {
       className: "right"
@@ -4738,7 +5416,7 @@
       }));
     }))), funcType.result.length > 0 && /* @__PURE__ */ v("tr", null, /* @__PURE__ */ v("th", {
       className: "right"
-    }, "result"), /* @__PURE__ */ v("td", null, funcType.result.map((p2) => p2).join(", "))), funcBody.locals.length > 0 && /* @__PURE__ */ v("tr", null, /* @__PURE__ */ v("th", {
+    }, "result"), /* @__PURE__ */ v("td", null, funcType.result.map((p3) => p3).join(", "))), funcBody.locals.length > 0 && /* @__PURE__ */ v("tr", null, /* @__PURE__ */ v("th", {
       className: "right"
     }, "locals"), /* @__PURE__ */ v("td", null, funcBody.locals.map((type2, i3) => {
       const index = i3 + funcType.params.length;
@@ -4765,6 +5443,7 @@
       {
         name: "name",
         cellClass: "break-all",
+        sort: (a3, b3) => ascending(props.functionNames.get(a3.index), props.functionNames.get(b3.index)),
         data: (f3) => /* @__PURE__ */ v("code", null, props.functionNames.get(f3.index))
       },
       {
@@ -4780,9 +5459,10 @@
       }
     ];
     return /* @__PURE__ */ v(Screen, {
-      module: props.module,
       title: '"code" section'
-    }, /* @__PURE__ */ v("p", null, "Function bodies."), /* @__PURE__ */ v(Table, {
+    }, /* @__PURE__ */ v("p", null, "Function bodies.", " ", /* @__PURE__ */ v("button", {
+      onClick: () => showCodeTreemap(props.children, props.functionNames)
+    }, "View Treemap")), /* @__PURE__ */ v(Table, {
       columns,
       onClick: (func) => props.onClick(func.index)
     }, props.children));
@@ -4816,7 +5496,6 @@
       }
     ];
     return /* @__PURE__ */ v(Screen, {
-      module: props.module,
       title: '"data" section'
     }, /* @__PURE__ */ v("p", null, "Initialization-time data."), /* @__PURE__ */ v(Table, {
       columns,
@@ -4860,7 +5539,6 @@
   };
   function DataHex(props) {
     return /* @__PURE__ */ v(Screen, {
-      module: props.module,
       title: `data[${props.data.index}]`
     }, /* @__PURE__ */ v("table", null, /* @__PURE__ */ v("tr", null, /* @__PURE__ */ v("th", {
       className: "right"
